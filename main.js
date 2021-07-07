@@ -4,26 +4,23 @@ const CELL_ROW_CNT = 16;
 
 class CrossHair {
   constructor(ctx, cellSize) {
+    /** @type {CanvasRenderingContext2D} */
     this.ctx = ctx;
-    this.x = null;
-    this.y = null;
     this.size = (cellSize * 2) / 3;
     this.cellSize = cellSize;
   }
 
-  setPointer(px, py) {
-    this.x = px * this.cellSize;
-    this.y = py * this.cellSize;
-  }
+  draw(row, col) {
+    if (col && row) {
+      const x = col * this.cellSize;
+      const y = row * this.cellSize;
 
-  draw() {
-    if (this.x && this.y) {
       this.ctx.save();
       this.ctx.setLineDash([3]);
       this.ctx.strokeStyle = "#0000ff";
       this.ctx.strokeRect(
-        this.x - this.size / 2,
-        this.y - this.size / 2,
+        x - this.size / 2,
+        y - this.size / 2,
         this.size,
         this.size
       );
@@ -32,7 +29,7 @@ class CrossHair {
   }
 }
 
-class Application {
+class Frame {
   constructor() {
     /** @type {HTMLCanvasElement} */
     this.canvas = document.getElementById("canvas");
@@ -43,21 +40,18 @@ class Application {
     this.cellSize = this.size / CELL_ROW_CNT;
     this.crossHair = new CrossHair(this.ctx, this.cellSize);
 
-    this.chessTable = new Array(CELL_ROW_CNT);
-    for (let i = 0; i < this.chessTable.length; i++) {
-      this.chessTable[i] = new Array(CELL_ROW_CNT);
-    }
-
     this.canvas.addEventListener("mouseup", this.doMouseUp.bind(this), false);
   }
 
-  doMouseUp(event) {
-    const px = (event.offsetX / this.cellSize).toFixed(0);
-    const py = (event.offsetY / this.cellSize).toFixed(0);
+  setOnClickListener(listener) {
+    this.onClick = listener;
+  }
 
-    console.log("px", px, "py", py);
-    this.crossHair.setPointer(px, py);
-    this.draw();
+  doMouseUp(event) {
+    const col = (event.offsetX / this.cellSize).toFixed(0);
+    const row = (event.offsetY / this.cellSize).toFixed(0);
+
+    this.onClick && this.onClick(row, col);
   }
 
   drawBoard() {
@@ -76,18 +70,77 @@ class Application {
       ctx.lineTo(size - cellSize, i * cellSize);
     }
     ctx.stroke();
-
   }
 
-  draw() {
+  drawChessPice(col, row, color) {
+    const chessSize = (this.cellSize * 9) / 10;
+    this.ctx.beginPath();
+    this.ctx.arc(
+      col * this.cellSize,
+      row * this.cellSize,
+      chessSize / 2,
+      0,
+      2 * Math.PI,
+      false
+    );
+    this.ctx.fillStyle = color;
+    this.ctx.fill();
+  }
+
+  drawChessPieces(table) {
+    this.ctx.save();
+
+    for (let i = 0; i < CELL_ROW_CNT; i++) {
+      for (let j = 0; j < CELL_ROW_CNT; j++) {
+        if (table[i][j] === 1) {
+          this.drawChessPice(i, j, "white");
+        } else if (table[i][j] === 2) {
+          this.drawChessPice(i, j, "black");
+        }
+      }
+    }
+    this.ctx.restore();
+  }
+
+  draw(table, selectRow, selectCol) {
     this.ctx.clearRect(0, 0, this.size, this.size);
 
     this.drawBoard();
-    this.crossHair.draw();
+    this.crossHair.draw(selectRow, selectCol);
+    this.drawChessPieces(table);
+  }
+}
+
+class Application {
+  constructor() {
+    this.frame = new Frame();
+    this.nextBlack = true;
+
+    this.chessTable = new Array(CELL_ROW_CNT);
+    for (let i = 0; i < this.chessTable.length; i++) {
+      this.chessTable[i] = new Array(CELL_ROW_CNT);
+    }
+
+    this.frame.setOnClickListener((row, col) => {
+      if (this.selectRow === row && this.selectCol === col) {
+        this.chessTable[col][row] = this.nextBlack ? 2 : 1;
+        this.nextBlack = !this.nextBlack;
+        this.selectRow = null;
+        this.selectCol = null;
+      } else if (!this.chessTable[col][row]){
+        this.selectRow = row;
+        this.selectCol = col;
+      }
+      this.redraw();
+    });
+  }
+
+  redraw() {
+    this.frame.draw(this.chessTable, this.selectRow, this.selectCol);
   }
 
   start() {
-    this.draw();
+    this.redraw();
   }
 }
 
