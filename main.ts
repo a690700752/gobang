@@ -1,16 +1,17 @@
-"use strict";
-
 const CELL_ROW_CNT = 16;
 
 class CrossHair {
-  constructor(ctx, cellSize) {
-    /** @type {CanvasRenderingContext2D} */
+  ctx: CanvasRenderingContext2D;
+  size: number;
+  cellSize: number;
+
+  constructor(ctx: CanvasRenderingContext2D, cellSize: number) {
     this.ctx = ctx;
     this.size = (cellSize * 2) / 3;
     this.cellSize = cellSize;
   }
 
-  draw(row, col) {
+  draw(row: number | null, col: number | null) {
     if (col && row) {
       const x = col * this.cellSize;
       const y = row * this.cellSize;
@@ -30,26 +31,33 @@ class CrossHair {
 }
 
 class Frame {
-  constructor() {
-    /** @type {HTMLCanvasElement} */
-    this.canvas = document.getElementById("canvas");
-    /** @type {CanvasRenderingContext2D} */
-    this.ctx = this.canvas.getContext("2d");
+  ctx: CanvasRenderingContext2D;
+  size: number;
+  cellSize: number;
+  crossHair: CrossHair;
+  offset: number;
+  onClick: ((row: number, col: number) => void) | null = null;
 
-    this.size = this.canvas.width;
+  constructor() {
+    const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+
+    this.ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+
+    this.size = canvas.width;
     this.cellSize = this.size / CELL_ROW_CNT;
     this.crossHair = new CrossHair(this.ctx, this.cellSize);
+    this.offset = this.cellSize / 2;
 
-    this.canvas.addEventListener("mouseup", this.doMouseUp.bind(this), false);
+    canvas.addEventListener("mouseup", this.doMouseUp.bind(this), false);
   }
 
-  setOnClickListener(listener) {
+  setOnClickListener(listener: (row: number, col: number) => void) {
     this.onClick = listener;
   }
 
-  doMouseUp(event) {
-    const col = (event.offsetX / this.cellSize).toFixed(0);
-    const row = (event.offsetY / this.cellSize).toFixed(0);
+  doMouseUp(event: MouseEvent) {
+    const col = Math.round((event.offsetX - this.offset) / this.cellSize);
+    const row = Math.round((event.offsetY - this.offset) / this.cellSize);
 
     this.onClick && this.onClick(row, col);
   }
@@ -72,7 +80,7 @@ class Frame {
     ctx.stroke();
   }
 
-  drawChessPice(col, row, color) {
+  drawChessPice(col: number, row: number, color: string) {
     const chessSize = (this.cellSize * 9) / 10;
     this.ctx.beginPath();
     this.ctx.arc(
@@ -87,7 +95,7 @@ class Frame {
     this.ctx.fill();
   }
 
-  drawChessPieces(table) {
+  drawChessPieces(table: number[][]) {
     this.ctx.save();
 
     for (let i = 0; i < CELL_ROW_CNT; i++) {
@@ -102,16 +110,29 @@ class Frame {
     this.ctx.restore();
   }
 
-  draw(table, selectRow, selectCol) {
+  draw(table: number[][], selectRow: number | null, selectCol: number | null) {
     this.ctx.clearRect(0, 0, this.size, this.size);
+    this.ctx.rect(0, 0, this.size, this.size);
+    this.ctx.fillStyle = "#fdf6e3";
+    this.ctx.fill();
+
+    this.ctx.translate(this.offset, this.offset);
 
     this.drawBoard();
     this.crossHair.draw(selectRow, selectCol);
     this.drawChessPieces(table);
+
+    this.ctx.translate(-this.offset, -this.offset);
   }
 }
 
 class Application {
+  frame: Frame;
+  nextBlack: boolean;
+  chessTable: number[][];
+  selectRow: number | null = null;
+  selectCol: number | null = null;
+
   constructor() {
     this.frame = new Frame();
     this.nextBlack = true;
@@ -127,7 +148,7 @@ class Application {
         this.nextBlack = !this.nextBlack;
         this.selectRow = null;
         this.selectCol = null;
-      } else if (!this.chessTable[col][row]){
+      } else if (!this.chessTable[col][row]) {
         this.selectRow = row;
         this.selectCol = col;
       }
@@ -144,7 +165,6 @@ class Application {
   }
 }
 
-// eslint-disable-next-line no-unused-vars
 function main() {
   const app = new Application();
 
